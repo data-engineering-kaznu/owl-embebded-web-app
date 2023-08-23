@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>OWL-Embedded Information and Analytical Framework for the Monitoring of Water Resources in the Ile-Balkhash Basin</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            font-family: Arial, sans-serif;
+        }
+
+        #title {
+            font-size: 36px;
+            margin-bottom: 20px;
+        }
+
+        #input-form {
+            width: 80%;
+            min-height: 33.33vh; /* At least one-third of the screen height */
+            padding: 20px;
+            background-color: #f0f0f0;
+            border-radius: 10px;
+            box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.1);
+            display: flex;
+            flex-direction: column;
+            align-items: center; /* Center contents vertically */
+            justify-content: space-between; /* Distribute space evenly between child elements */
+        }
+
+        textarea {
+            width: 90%;
+            max-width: 90vw; /* 90% of the viewport width */
+            height: 33.33vh; /* One-third of the screen height */
+            padding: 10px;
+            margin-bottom: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            font-size: 16px;
+            resize: vertical; /* Allow vertical resizing */
+            overflow: auto; /* Add scrollbars when content overflows */
+        }
+
+        button {
+            background-color: #007bff;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+
+        #result-view {
+            width: 80%;
+            height: 50vh;
+            margin-top: 20px;
+            background-color: #f0f0f0;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 50px;
+            box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.1);
+            overflow: auto;
+        }
+
+        .header-dropdown {
+            padding: 5px;
+            font-size: 14px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            background-color: white;
+            cursor: pointer;
+            outline: none;
+            transition: border-color 0.3s, background-color 0.3s;
+        }
+
+        .header-dropdown:hover {
+            border-color: #007bff;
+        }
+
+        .header-dropdown:focus {
+            border-color: #007bff;
+            background-color: #f0f0f0;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th, td {
+            border: 1px solid #ccc;
+            padding: 8px;
+        }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script> <!-- Include Chart.js library -->
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@1.0.2"></script>
+    <script>
+        window.onload = function () {
+            const textarea = document.getElementById('input_text');
+            const form = document.getElementById('input-form');
+
+            // Load saved text from local storage on page load
+            const savedText = localStorage.getItem('savedText');
+            if (savedText) {
+                textarea.value = savedText;
+            }
+
+            // Save text to local storage when form is submitted
+            form.addEventListener('submit', function () {
+                localStorage.setItem('savedText', textarea.value);
+            });
+        };
+    </script>
+</head>
+<body>
+    <div id="title">Monitoring of Water Resources in the Ile-Balkhash Basin</div>
+    <form id="input-form" method="POST">
+        <label for="input_text">Enter SPARQL request:</label>
+        <textarea id="input_text" name="input_text" rows="4"></textarea>
+        <button type="submit">Submit</button>
+    </form>
+    <div id="result-view">
+        <table>
+            <tr id="header-dropdowns">
+                {% for header in headers %}
+                    <th>
+                        <select class="header-dropdown">
+                            {% for value in header %}
+                                <option value="{{ value }}">{{ value }}</option>
+                            {% endfor %}
+                        </select>
+                    </th>
+                {% endfor %}
+            </tr>
+            {% for row in data %}
+                <tr class="data-row">
+                    {% for cell in row %}
+                        <td>{{ cell }}</td>
+                    {% endfor %}
+                </tr>
+            {% endfor %}
+        </table>
+    </div>
+    <div id="charts"></div>
+
+    <!-- Embed data in a data-* attribute of an element -->
+    <div id="data-container" data-csvdata="{{ data | safe }}"></div>
+    <div id="header-container" header-csvdata="{{ headers | safe }}"></div>
+
+    <script>
+        function createArrayFromZeroToN(N) {
+            const result = [];
+            for (let i = 0; i < N; i++) {
+                result.push(i);
+            }
+            return result;
+        }
+
+        function createArrayWithValues(targetLength, value) {
+            return Array.from({ length: targetLength }, () => value);
+        }
+
+        function drawCharts() {
+            // Use dataFromFlask in your Chart.js code
+            var headerData = shownRowIndices.map(rowIndex => dataFromFlask[rowIndex][0]);
+            var numericData = []; // An array of arrays to store numeric data for each column
+            var numericDataIndices = []
+
+            // Iterate over each column (excluding the first one which is the header)
+            for (var columnIndex = 1; columnIndex < headerFromFlask.length; columnIndex++) {
+                var columnNumericData = dataFromFlask.map(row => parseFloat(row[columnIndex]));
+
+                
+                var allValuesAreNaN = columnNumericData.every(value => isNaN(value));
+                const filteredColumnNumericData = shownRowIndices.map(rowIndex => columnNumericData[rowIndex]);
+                if (!allValuesAreNaN) {
+                    numericData.push(filteredColumnNumericData);
+                    numericDataIndices.push(columnIndex + 1);
+                }
+
+            }
+
+            var maxValues = numericData.map(data => Math.max(...data));
+            var minValues = numericData.map(data => Math.min(...data));
+
+            // Get the canvas element for the bar chart
+            const flexContainer = document.getElementById('charts');
+            flexContainer.innerHTML = '';
+            flexContainer.style.display = 'flex';
+            flexContainer.style.flexDirection = 'column';
+            flexContainer.style.height = String((headerFromFlask.length - 1) * 500) + 'px';
+            document.body.appendChild(flexContainer);
+            
+            for (var i = 0; i < numericData.length; i++) {
+                var canvas = document.createElement('canvas');
+                canvas.style.height = '500px'; // Set canvas height to 400 pixels
+                canvas.style.width = '100vw'; // Full width of the screen
+                flexContainer.appendChild(canvas);
+
+                new Chart(canvas, {
+                    type: 'line', // Change to the chart type you want
+                    data: {
+                        labels: headerData,
+                        datasets: [
+                        {
+                            label: "wpi index",
+                            data: numericData[i],
+                            borderColor: 'rgba(0, 123, 255, 0.5)',
+                            fill: true
+                        },
+                        {
+                            label: "Min",
+                            data: createArrayWithValues(numericData[i].length, minValues[i]),
+                            borderColor: 'rgba(255, 123, 120, 0.5)',
+                            fill: false
+                        },
+                        {
+                            label: "Max",
+                            data: createArrayWithValues(numericData[i].length, maxValues[i]),
+                            borderColor: 'rgba(125, 255, 120, 0.5)',
+                            fill: false
+                        }]
+                    },
+                    options: {
+                        responsive: false,
+                        maintainAspectRatio: false,
+                        layout: {
+                            padding: {
+                                left: 100,
+                                right: 100,
+                                top: 10,
+                                bottom: 10
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true
+                            }
+                        }
+                    }
+                });
+            }
+        }
+
+        // Function to apply filters and show/hide rows based on selected values
+        function applyFilters() {
+            var dataRows = document.querySelectorAll('.data-row');
+
+            shownRowIndices = [];
+            // Loop through data rows
+            dataRows.forEach(function (row, rowIndex) {
+                var cells = row.querySelectorAll('td');
+                var shouldShowRow = true;
+
+                // Check if the row matches the selected values
+                selectedValues.forEach(function (value, columnIndex) {
+                    var cellValue = cells[columnIndex].textContent.trim();
+                    
+                    // Skip filtering if "All" is selected for a column
+                    if (value !== 'All' && value !== '' && cellValue !== value) {
+                        shouldShowRow = false;
+                    }
+                });
+
+                // Show/hide rows based on filter criteria
+                if (shouldShowRow) {
+                    row.style.display = '';
+                    shownRowIndices.push(rowIndex);
+                } else {
+                    row.style.display = 'none';
+                }
+                
+            });
+        }
+
+        var dataContainer = document.getElementById('data-container');
+        var jsonStr = dataContainer.getAttribute('data-csvdata');
+        jsonStr = jsonStr.replace(/'/g, '"');
+        var dataFromFlask = JSON.parse(jsonStr);
+
+        var headerContainer = document.getElementById('header-container');
+        var jsonStr = headerContainer.getAttribute('header-csvdata');
+        jsonStr = jsonStr.replace(/'/g, '"');
+        var headerFromFlask = JSON.parse(jsonStr);
+
+        var shownRowIndices = createArrayFromZeroToN(dataFromFlask.length);
+        // Get all header dropdowns
+        var headerDropdowns = document.querySelectorAll('.header-dropdown');
+
+        // Initialize an array to store selected values for each dropdown
+        var selectedValues = new Array(headerDropdowns.length).fill('');
+
+        // Add event listeners to each header dropdown
+        headerDropdowns.forEach(function (dropdown, columnIndex) {
+            dropdown.addEventListener('change', function () {
+                selectedValues[columnIndex] = dropdown.value;
+                applyFilters();
+                drawCharts();
+            });
+        });
+
+        drawCharts();
+    </script>
+</body>
+</html>
